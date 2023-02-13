@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-from matplotlib import pyplot as plt
 import math
 # Variables
 
@@ -8,13 +7,13 @@ cone_width_reference = 90 #  90 pixel width at 6 ft
 x = 0
 y = 0
 w = 0
-h = 0
+height = 0
 
 distance = 0
 
 # reading image
 vid = cv2.VideoCapture(0)
-
+#(hMin = 19 , sMin = 108, vMin = 71), (hMax = 30 , sMax = 255, vMax = 255)
 
 
 while True:
@@ -22,8 +21,8 @@ while True:
     ORIGv = frame.copy()
     original = frame.copy()
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    lower = np.array([5, 104, 182], dtype="uint8") # 20, 70, 130
-    upper = np.array([90, 255, 255], dtype="uint8") # 80, 240, 245
+    lower = np.array([22, 108, 71], dtype="uint8") # 5, 10, 130
+    upper = np.array([30, 255, 255], dtype="uint8") # 80, 240, 245
     mask = cv2.inRange(frame, lower, upper)     
 
 
@@ -33,13 +32,16 @@ while True:
 
     for c in cnts:
         x, y, w, h = cv2.boundingRect(c)
-        cv2.rectangle(original, (x, y), (x + w, y + h), (36, 255, 12), 2)
+        if (w > 92.5):
+            cv2.rectangle(original, (x, y), (x + w, y + h), (36, 255, 12), 2)
+            height = h
 
-    if (w != 0):
-        distance = 92.5 / w  * 6
+
+    if (height != 0):
+        distance = (194 / height)  * 9
     else:
         distance = 0
-    print(f"distance is {distance}", f"/nand Pixel width is {w}")
+    print(f"distance is {distance}", f"/nand Pixel height is {height}")
 
     cv2.imshow("in_range", original)
     cv2.imshow("Video", mask)
