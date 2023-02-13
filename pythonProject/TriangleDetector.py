@@ -1,63 +1,47 @@
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
-
+import math
 # Variables
 
 cone_width_reference = 90 #  90 pixel width at 6 ft
+x = 0
+y = 0
+w = 0
+h = 0
+
+distance = 0
 
 # reading image
-# vid = cv2.VideoCapture(0)
+vid = cv2.VideoCapture(0)
 
 
 
 while True:
-    frame = cv2.imread("cone_test.jpg")
-
-    # Transform the image to HSV and Detect yellow
-    hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    img_thresh_low = cv2.inRange(hsv_frame, np.array([25, 50, 100]), # (25,25,199)
-                                 np.array([60,255, 255]))  #everything that is included in the "left red"
-    img_thresh_high = cv2.inRange(hsv_frame, np.array([159, 135, 135]), # (159, 135, 135
-                                  np.array([179, 255, 255]))
-
-    # everything that is included in the "right yellow"
-    img_thresh = cv2.bitwise_or(img_thresh_low, img_thresh_high)
+    _, frame = vid.read()
+    ORIGv = frame.copy()
+    original = frame.copy()
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    lower = np.array([5, 104, 182], dtype="uint8") # 20, 70, 130
+    upper = np.array([90, 255, 255], dtype="uint8") # 80, 240, 245
+    mask = cv2.inRange(frame, lower, upper)     
 
 
-    kernel = np.ones((5, 5))
-    img_thresh_opened = cv2.morphologyEx(img_thresh, cv2.MORPH_OPEN, kernel)
-    img_thresh_blurred = cv2.medianBlur(img_thresh_opened, 5)
-    img_edges = cv2.Canny(img_thresh_blurred, 80, 160)
+    cnts = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
 
 
-    # Contours
+    for c in cnts:
+        x, y, w, h = cv2.boundingRect(c)
+        cv2.rectangle(original, (x, y), (x + w, y + h), (36, 255, 12), 2)
 
-    #contours, _ = cv2.findContours(img_edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    if (w != 0):
+        distance = 92.5 / w  * 6
+    else:
+        distance = 0
+    print(f"distance is {distance}", f"/nand Pixel width is {w}")
 
-    # Select a contour
-    #cnt = contours[0]
-
-    # Approximate the contour using cv2.approxPolyDP
-    #epsilon = 0.1 * cv2.arcLength(cnt, True)
-    #approx = cv2.approxPolyDP(cnt, epsilon, True)
-    #cv2.drawContours(img_thresh_blurred, [approx], 0, (0, 255, 0), 2)
-
-    """
-    for c in contours[0]:
-        epsilon = 0.1 * cv2.arcLength(c, True)
-        approx = cv2.approxPolyDP(c, epsilon, True)
-        approx_contours.append(approx)
-    """
-
-    """
-    all_convex_hulls = []
-    for ac in approx_contours:
-        all_convex_hulls.append(cv2.convexHull(ac))
-    """
-
-    cv2.imshow("edges", img_edges)
-    cv2.imshow("iN_rnage", img_thresh_blurred)
-    cv2.imshow("video", frame)
+    cv2.imshow("in_range", original)
+    cv2.imshow("Video", mask)
     cv2.waitKey(1)
 
