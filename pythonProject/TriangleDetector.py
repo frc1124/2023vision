@@ -38,7 +38,7 @@ while True:
 
 
     if (height != 0):
-        distance = (194 / height)  * 9
+        distance = (700 / height)  * 2
     else:
         distance = 0
     print(f"distance is {distance}", f"/nand Pixel height is {height}")
