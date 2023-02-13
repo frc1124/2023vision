@@ -4,12 +4,9 @@ import math
 # Variables
 
 cone_width_reference = 90 #  90 pixel width at 6 ft
-x = 0
-y = 0
-w = 0
 height = 0
-
-distance = 0
+x_pos = 0
+distance_from_cone = 0
 
 # reading image
 vid = cv2.VideoCapture(0)
@@ -34,14 +31,17 @@ while True:
         x, y, w, h = cv2.boundingRect(c)
         if (w > 92.5):
             cv2.rectangle(original, (x, y), (x + w, y + h), (36, 255, 12), 2)
+            cv2.circle(original, (x+ int(w/2),y + int(h/2)), 20,  (36, 255, 12), 10)
             height = h
+            x_pos = x
 
 
     if (height != 0):
-        distance = (700 / height)  * 2
+        distance = (353. / height) * 2
     else:
         distance = 0
-    print(f"distance is {distance}", f"/nand Pixel height is {height}")
+    print(f"distance is {distance}", f" and Pixel height is {height}")
+    print(f"Horizontal distance (px): {x_pos-360}")
 
     cv2.imshow("in_range", original)
     cv2.imshow("Video", mask)
