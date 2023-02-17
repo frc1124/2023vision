@@ -76,12 +76,13 @@ while True:
     if cnts_y != None:
         for c in cnts_y:
             x, y, w, h = cv2.boundingRect(c)
-            if (w > 50):
+            if (w > 10):
                 if (convex_hull_pointing_up(c)):
-                    distance = (635 / h) * 2
+                    distance = (407 / h) * 2
                     if (distance_from_robot > distance):
                         current_obj = c
                         distance_from_robot = distance
+                        height = h
                         x_pos = x
 
     if (cnts_p != None):
@@ -92,6 +93,7 @@ while True:
                 if (distance_from_robot > distance):
                     current_obj = c
                     distance_from_robot = distance
+                    height = h
                     x_pos = x
 
     try:
@@ -102,6 +104,7 @@ while True:
         else:
             distance_from_robot = 69420
             x_pos = 0
+            height=0
 
     except:
         continue
