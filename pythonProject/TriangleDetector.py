@@ -7,8 +7,9 @@ cone_width_reference = 90 #  90 pixel width at 6 ft
 height = 0
 x_pos = 0
 distance_from_robot = 10
-distance = 0
 current_obj = None
+distance = 0
+x=0
 
 # reading image
 vid = cv2.VideoCapture(0)
@@ -49,8 +50,11 @@ def convex_hull_pointing_up(ch):
 
     return True
 
+
 while True:
+    distance_from_robot = 69420
     _, frame = vid.read()
+
     ORIGv = frame.copy()
     original = frame.copy()
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -62,9 +66,6 @@ while True:
     lower_p = np.array([117, 75, 75], dtype="uint8")  # 110, 141, 47
     upper_p = np.array([126, 255, 250], dtype="uint8")  # 130, 255, 255
     mask_p = cv2.inRange(frame, lower_p, upper_p)
-
-
-
 
     cnts_y = cv2.findContours(mask_y, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts_y = cnts_y[0] if len(cnts_y) == 2 else cnts_y[1]
@@ -78,9 +79,10 @@ while True:
             if (w > 50):
                 if (convex_hull_pointing_up(c)):
                     distance = (635 / h) * 2
-                    current_obj = c
-                    distance_from_robot = distance
-                    x_pos = x
+                    if (distance_from_robot > distance):
+                        current_obj = c
+                        distance_from_robot = distance
+                        x_pos = x
 
     if (cnts_p != None):
         for c in cnts_p:
@@ -92,28 +94,27 @@ while True:
                     distance_from_robot = distance
                     x_pos = x
 
-    if (cnts_y != None and cnts_p != None):
-        try:
+    try:
+        if (type(current_obj) != None):
             x, y, w, h = cv2.boundingRect(current_obj)
             cv2.rectangle(original, (x, y), (x + w, y + h), (36, 255, 12), 2)
             cv2.circle(original, (x + int(w / 2), y + int(h / 2)), 20, (36, 255, 12), 2)
-        except:
-            print("L")
-    else:
-        print(cnts_y)
+        else:
+            distance_from_robot = 69420
+            x_pos = 0
 
-        x_pos = 0
-        distance_from_robot = 0
-        current_obj = None
-        original = ORIGv
-
+    except:
+        continue
 
 
     print(f"distance is {distance}", f" and Pixel height is {height}")
     print(f"Horizontal distance (px): {x_pos-360}")
 
     cv2.imshow("in_range", original)
-    cv2.imshow("Yellow Video", mask_y)
-    cv2.imshow("Purple Video", mask_p)
+    #cv2.imshow("Yellow Video", mask_y)
+    #cv2.imshow("Purple Video", mask_p)
     cv2.waitKey(1)
+    current_obj = None
+
+
 
