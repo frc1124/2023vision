@@ -5,6 +5,7 @@ import math
 # Variables
 cone_width_reference = 90 #  90 pixel width at 6 ft
 height = 0
+width = 0
 x_pos = 0
 distance_from_robot = 10
 current_obj = None
@@ -67,11 +68,19 @@ while True:
     upper_p = np.array([126, 255, 250], dtype="uint8")  # 130, 255, 255
     mask_p = cv2.inRange(frame, lower_p, upper_p)
 
+    lower_g = np.array([0, 0, 255], dtype="uint8")  # 110, 141, 47
+    upper_g = np.array([0, 255, 255], dtype="uint8")  # 130, 255, 255
+    mask_g = cv2.inRange(frame, lower_g, upper_g)
+
     cnts_y = cv2.findContours(mask_y, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts_y = cnts_y[0] if len(cnts_y) == 2 else cnts_y[1]
 
     cnts_p = cv2.findContours(mask_p, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts_p = cnts_p[0] if len(cnts_p) == 2 else cnts_p[1]
+
+    cnts_g = cv2.findContours(mask_g, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts_g = cnts_g[0] if len(cnts_g) == 2 else cnts_g[1]
+
 
     if cnts_y != None:
         for c in cnts_y:
@@ -96,10 +105,21 @@ while True:
                     height = h
                     x_pos = x
 
+    if cnts_g != None:
+        for c in cnts_g:
+            x, y, w, h = cv2.boundingRect(c)
+            if w > 20:
+                distance = (110/w) *2
+                if distance_from_robot > distance:
+                    width = w
+                    current_obj = c
+                    height = h
+                    x_pos = x
+
     try:
         if (type(current_obj) != None):
             x, y, w, h = cv2.boundingRect(current_obj)
-            cv2.rectangle(original, (x, y), (x + w, y + h), (36, 255, 12), 2)
+            cv2.rectangle(original, (x, y), (x + w, y + h), (255, 0, 0), 2)
             cv2.circle(original, (x + int(w / 2), y + int(h / 2)), 20, (36, 255, 12), 2)
         else:
             distance_from_robot = 69420
@@ -110,12 +130,13 @@ while True:
         continue
 
 
-    print(f"distance is {distance}", f" and Pixel height is {height}")
+    print(f"distance is {distance}", f" and Pixel width is {width}")
     print(f"Horizontal distance (px): {x_pos-360}")
 
     cv2.imshow("in_range", original)
     #cv2.imshow("Yellow Video", mask_y)
     #cv2.imshow("Purple Video", mask_p)
+    cv2.imshow("Green Video", mask_g)
     cv2.waitKey(1)
     current_obj = None
 
