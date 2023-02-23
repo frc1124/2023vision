@@ -24,7 +24,7 @@ def convex_hull_pointing_up(ch):
     x, y, w, h = cv2.boundingRect(ch)
     aspect_ratio = w / h
 
-    if aspect_ratio < 0.8:
+    if aspect_ratio < 0.9: # 0.8
         vertical_center = y + h / 2
 
         for point in ch:
@@ -68,8 +68,8 @@ while True:
     upper_p = np.array([126, 255, 250], dtype="uint8")  # 130, 255, 255
     mask_p = cv2.inRange(frame, lower_p, upper_p)
 
-    lower_g = np.array([0, 0, 255], dtype="uint8")  # 110, 141, 47
-    upper_g = np.array([0, 255, 255], dtype="uint8")  # 130, 255, 255
+    lower_g = np.array([0, 0, 255], dtype="uint8")  # 0, 0, 255
+    upper_g = np.array([0, 255, 254], dtype="uint8")  # 0, 255, 255
     mask_g = cv2.inRange(frame, lower_g, upper_g)
 
     cnts_y = cv2.findContours(mask_y, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -92,7 +92,7 @@ while True:
                         current_obj = c
                         distance_from_robot = distance
                         height = h
-                        x_pos = x
+                        x_pos = x + (w / 2)
 
     if (cnts_p != None):
         for c in cnts_p:
@@ -103,35 +103,40 @@ while True:
                     current_obj = c
                     distance_from_robot = distance
                     height = h
-                    x_pos = x
+                    x_pos = x + (w/2)
 
     if cnts_g != None:
         for c in cnts_g:
             x, y, w, h = cv2.boundingRect(c)
             if w > 20:
-                distance = (110/w) *2
+                distance = (110/w) * 2
                 if distance_from_robot > distance:
                     width = w
                     current_obj = c
                     height = h
-                    x_pos = x
+                    x_pos = x + (w/2) - 320
+
+    cv2.line(original, (320, 0), (320, 500), (255, 0, 0), 2)
 
     try:
         if (type(current_obj) != None):
             x, y, w, h = cv2.boundingRect(current_obj)
             cv2.rectangle(original, (x, y), (x + w, y + h), (255, 0, 0), 2)
-            cv2.circle(original, (x + int(w / 2), y + int(h / 2)), 20, (36, 255, 12), 2)
+            cv2.circle(original, (x + int(w / 2), y + int(h / 2)), 2, (36, 255, 12), 2)
         else:
             distance_from_robot = 69420
             x_pos = 0
-            height=0
+            height = 0
 
     except:
         continue
 
+    print(len(frame[0]))
+    print(len(frame))
 
-    print(f"distance is {distance}", f" and Pixel width is {width}")
-    print(f"Horizontal distance (px): {x_pos-360}")
+    print(f"distance is {distance}", f" and distance horizontally is {x_pos} px")
+    print(f"distance in ft horizontally {90/x_pos * 11/12}")
+    #print(f"Horizontal distance (px): {}")
 
     cv2.imshow("in_range", original)
     #cv2.imshow("Yellow Video", mask_y)
