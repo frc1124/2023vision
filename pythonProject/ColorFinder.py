@@ -1,90 +1,96 @@
+# finding hsv range of target object(pen)
 import cv2
-import sys
 import numpy as np
+from cscore import CameraServer, VideoSource, UsbCamera, MjpegServer
+from ntcore import NetworkTableInstance, EventFlags
+import time
+img = np.zeros(shape=(240, 320, 3), dtype=np.uint8)
 
+
+# A required callback method that goes into the trackbar function.
 def nothing(x):
     pass
 
-useCamera=True
 
-# Check if filename is passed
-if (len(sys.argv) <= 1) :
-    print("'Usage: python hsvThresholder.py <ImageFilePath>' to ignore camera and use a local image.")
-    useCamera = True
+# Initializing the webcam feed.
+server = CameraServer.startAutomaticCapture()
+server.setResolution(160, 120)
+input_stream = CameraServer.getVideo()
+output_stream = CameraServer.putVideo('Processed', 160, 120)
 
-# Create a window
-cv2.namedWindow('image')
+#cap = cv2.VideoCapture(0)
+#cap.set(3, 1280)
+#cap.set(4, 720)
 
-# create trackbars for color change
-cv2.createTrackbar('HMin','image',0,179,nothing) # Hue is from 0-179 for Opencv
-cv2.createTrackbar('SMin','image',0,255,nothing)
-cv2.createTrackbar('VMin','image',0,255,nothing)
-cv2.createTrackbar('HMax','image',0,179,nothing)
-cv2.createTrackbar('SMax','image',0,255,nothing)
-cv2.createTrackbar('VMax','image',0,255,nothing)
+# Create a window named trackbars.
+cv2.namedWindow("Trackbars")
 
-# Set default value for MAX HSV trackbars.
-cv2.setTrackbarPos('HMax', 'image', 179)
-cv2.setTrackbarPos('SMax', 'image', 255)
-cv2.setTrackbarPos('VMax', 'image', 255)
+# Now create 6 trackbars that will control the lower and upper range of
+# H,S and V channels. The Arguments are like this: Name of trackbar,
+# window name, range,callback function. For Hue the range is 0-179 and
+# for S,V its 0-255.
+cv2.createTrackbar("L - H", "Trackbars", 0, 179, nothing)
+cv2.createTrackbar("L - S", "Trackbars", 0, 255, nothing)
+cv2.createTrackbar("L - V", "Trackbars", 0, 255, nothing)
+cv2.createTrackbar("U - H", "Trackbars", 179, 179, nothing)
+cv2.createTrackbar("U - S", "Trackbars", 255, 255, nothing)
+cv2.createTrackbar("U - V", "Trackbars", 255, 255, nothing)
 
-# Initialize to check if HSV min/max value changes
-hMin = sMin = vMin = hMax = sMax = vMax = 0
-phMin = psMin = pvMin = phMax = psMax = pvMax = 0
+while True:
 
-# Output Image to display
-if useCamera:
-    cap = cv2.VideoCapture(0)
-    # Wait longer to prevent freeze for videos.
-    waitTime = 330
-else:
-    img = cv2.imread(sys.argv[1])
-    output = img
-    waitTime = 33
+    # Start reading the webcam feed frame by frame.
+    frame_time, input_img = input_stream.grabFrame(img)
 
-while(1):
+    # Flip the frame horizontally (Not required)
+    #frame = cv2.flip(frame, 1)
 
-    if useCamera:
-        # Capture frame-by-frame
-        ret, img = cap.read()
-        output = img
+    # Convert the BGR image to HSV image.
+    hsv = cv2.cvtColor(input_img, cv2.COLOR_BGR2HSV)
 
-    # get current positions of all trackbars
-    hMin = cv2.getTrackbarPos('HMin','image')
-    sMin = cv2.getTrackbarPos('SMin','image')
-    vMin = cv2.getTrackbarPos('VMin','image')
+    # Get the new values of the trackbar in real time as the user changes
+    # them
+    l_h = cv2.getTrackbarPos("L - H", "Trackbars")
+    l_s = cv2.getTrackbarPos("L - S", "Trackbars")
+    l_v = cv2.getTrackbarPos("L - V", "Trackbars")
+    u_h = cv2.getTrackbarPos("U - H", "Trackbars")
+    u_s = cv2.getTrackbarPos("U - S", "Trackbars")
+    u_v = cv2.getTrackbarPos("U - V", "Trackbars")
 
-    hMax = cv2.getTrackbarPos('HMax','image')
-    sMax = cv2.getTrackbarPos('SMax','image')
-    vMax = cv2.getTrackbarPos('VMax','image')
+    # Set the lower and upper HSV range according to the value selected
+    # by the trackbar
+    lower_range = np.array([l_h, l_s, l_v])
+    upper_range = np.array([u_h, u_s, u_v])
 
-    # Set minimum and max HSV values to display
-    lower = np.array([hMin, sMin, vMin])
-    upper = np.array([hMax, sMax, vMax])
+    # Filter the image and get the binary mask, where white represents
+    # your target color
+    mask = cv2.inRange(hsv, lower_range, upper_range)
 
-    # Create HSV Image and threshold into a range.
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, lower, upper)
-    output = cv2.bitwise_and(img,img, mask= mask)
+    # You can also visualize the real part of the target color (Optional)
+    res = cv2.bitwise_and(input_img, input_img, mask=mask)
 
-    # Print if there is a change in HSV value
-    if( (phMin != hMin) | (psMin != sMin) | (pvMin != vMin) | (phMax != hMax) | (psMax != sMax) | (pvMax != vMax) ):
-        print("(hMin = %d , sMin = %d, vMin = %d), (hMax = %d , sMax = %d, vMax = %d)" % (hMin , sMin , vMin, hMax, sMax , vMax))
-        phMin = hMin
-        psMin = sMin
-        pvMin = vMin
-        phMax = hMax
-        psMax = sMax
-        pvMax = vMax
+    # Converting the binary mask to 3 channel image, this is just so
+    # we can stack it with the others
+    mask_3 = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
 
-    # Display output image
-    cv2.imshow('image',output)
+    # stack the mask, orginal frame and the filtered result
+    stacked = np.hstack((mask_3, input_img, res))
 
-    # Wait longer to prevent freeze for videos.
-    if cv2.waitKey(waitTime) & 0xFF == ord('q'):
+    # Show this stacked frame at 40% of the size.
+    cv2.imshow('Trackbars', cv2.resize(stacked, None, fx=0.4, fy=0.4))
+
+    # If the user presses ESC then exit the program
+    key = cv2.waitKey(1)
+    if key == 27:
         break
 
-# Release resources
-if useCamera:
-    cap.release()
-cv2.destroyAllWindows()
+    # If the user presses `s` then print this array.
+    if key == ord('s'):
+        thearray = [[l_h, l_s, l_v], [u_h, u_s, u_v]]
+        print(thearray)
+
+        # Also save this array as penval.npy
+        np.save('hsv_value', thearray)
+        break
+
+# Release the camera & destroy the windows.
+output_stream.putFrame(stacked)

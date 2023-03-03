@@ -1,35 +1,56 @@
 import cv2
 import numpy as np
 import math
+from cscore import CameraServer, VideoSource, UsbCamera, MjpegServer
+from ntcore import NetworkTableInstance, EventFlags
+import time
+
+# Network Tables
+ntinst = NetworkTableInstance.getDefault()
+ntinst.startServer()
+table = ntinst.getTable("Vision")
+time.sleep(0.5)
+
+CameraServer.startAutomaticCapture()
+input_stream = CameraServer.getVideo()
+print(input_stream.getDescription())
+output_stream = CameraServer.putVideo('Processed', 160, 120)
 
 # Variables
-cone_width_reference = 90 #  90 pixel width at 6 ft
-height = 0
-width = 0
-x_pos = 0
-distance_from_robot = 10
-current_obj = None
-distance = 0
-x=0
+cone_width_reference = 90 # 90 pixel width at 6 ft
+angle_per_pixels = 60/160
+
 
 # reading image
-vid = cv2.VideoCapture(0)
+#vid = cv2.VideoCapture(0)
 #(hMin = 19 , sMin = 108, vMin = 71), (hMax = 30 , sMax = 255, vMax = 255)
 
 
-def convex_hull_pointing_up(ch):
+lower_y = np.array([14, 163, 109], dtype="uint8") # 22, 151, 71
+upper_y = np.array([30, 255, 255], dtype="uint8") # 28, 255, 255
 
+lower_p = np.array([117, 75, 75], dtype="uint8")  # 110, 141, 47
+upper_p = np.array([126, 255, 250], dtype="uint8")  # 130, 255, 255
+
+lower_g = np.array([0, 0, 255], dtype="uint8")  # 0, 0, 255
+upper_g = np.array([0, 255, 254], dtype="uint8")  # 0, 255, 255
+
+img = np.zeros(shape=(240, 320, 3), dtype=np.uint8)
+
+time.sleep(0.5)
+
+
+def convex_hull_pointing_up(ch):
     points_above_center, points_below_center = [], []
 
     x, y, w, h = cv2.boundingRect(ch)
     aspect_ratio = w / h
 
-    if aspect_ratio < 0.9: # 0.8
+    if aspect_ratio < 0.9:  # 0.8
         vertical_center = y + h / 2
 
         for point in ch:
-            if point[0][
-                1] < vertical_center:
+            if point[0][1] < vertical_center:
                 points_above_center.append(point)
             elif point[0][1] >= vertical_center:
                 points_below_center.append(point)
@@ -48,30 +69,40 @@ def convex_hull_pointing_up(ch):
                 return False
     else:
         return False
-
     return True
 
-
 while True:
+    # Reset variables
     distance_from_robot = 69420
-    _, frame = vid.read()
+    angle = 0
+    x_pos = 0
+    distance = 0
+    current_obj = None
 
-    ORIGv = frame.copy()
+    # Start time
+    start_time = time.time()
+    frame_time, input_img = input_stream.grabFrame(img)
+
+
+    if frame_time == 0:
+        output_stream.notifyError(input_stream.getError())
+        continue
+
+    output_img = np.copy(input_img)
+    frame = input_img
+
     original = frame.copy()
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    lower_y = np.array([22, 151, 71], dtype="uint8") # 5, 10, 130
-    upper_y = np.array([28, 255, 255], dtype="uint8") # 30, 240, 24z
+    # Masks
     mask_y = cv2.inRange(frame, lower_y, upper_y)
-
-    lower_p = np.array([117, 75, 75], dtype="uint8")  # 110, 141, 47
-    upper_p = np.array([126, 255, 250], dtype="uint8")  # 130, 255, 255
     mask_p = cv2.inRange(frame, lower_p, upper_p)
-
-    lower_g = np.array([0, 0, 255], dtype="uint8")  # 0, 0, 255
-    upper_g = np.array([0, 255, 254], dtype="uint8")  # 0, 255, 255
     mask_g = cv2.inRange(frame, lower_g, upper_g)
 
+    mask_y = cv2.medianBlur(mask_y, 5)
+    mask_p = cv2.medianBlur(mask_p, 5)
+    mask_g = cv2.medianBlur(mask_g, 5)
+    # Contours
     cnts_y = cv2.findContours(mask_y, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts_y = cnts_y[0] if len(cnts_y) == 2 else cnts_y[1]
 
@@ -81,13 +112,15 @@ while True:
     cnts_g = cv2.findContours(mask_g, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts_g = cnts_g[0] if len(cnts_g) == 2 else cnts_g[1]
 
-
+    # Contour detection
     if cnts_y != None:
         for c in cnts_y:
             x, y, w, h = cv2.boundingRect(c)
-            if (w > 10):
+            if cv2.contourArea(c) < 0:
+                continue
+            else:
                 if (convex_hull_pointing_up(c)):
-                    distance = (407 / h) * 2
+                    distance = (69 / h) * 3
                     if (distance_from_robot > distance):
                         current_obj = c
                         distance_from_robot = distance
@@ -97,7 +130,9 @@ while True:
     if (cnts_p != None):
         for c in cnts_p:
             x, y, w, h = cv2.boundingRect(c)
-            if (w > 62.5):
+            if cv2.contourArea(c) < 15:
+                continue
+            else:
                 distance = (635 / h) * 2
                 if (distance_from_robot > distance):
                     current_obj = c
@@ -108,7 +143,9 @@ while True:
     if cnts_g != None:
         for c in cnts_g:
             x, y, w, h = cv2.boundingRect(c)
-            if w > 20:
+            if cv2.contourArea(c) < 15:
+                continue
+            else:
                 distance = (110/w) * 2
                 if distance_from_robot > distance:
                     width = w
@@ -116,33 +153,31 @@ while True:
                     height = h
                     x_pos = x + (w/2) - 320
 
-    cv2.line(original, (320, 0), (320, 500), (255, 0, 0), 2)
+
 
     try:
         if (type(current_obj) != None):
             x, y, w, h = cv2.boundingRect(current_obj)
             cv2.rectangle(original, (x, y), (x + w, y + h), (255, 0, 0), 2)
             cv2.circle(original, (x + int(w / 2), y + int(h / 2)), 2, (36, 255, 12), 2)
-        else:
-            distance_from_robot = 69420
-            x_pos = 0
-            height = 0
-
+            table.putNumber("Distance", distance)
     except:
         continue
 
-    print(len(frame[0]))
-    print(len(frame))
+    processing_time = time.time() - start_time
+    fps = 1 / processing_time
 
-    print(f"distance is {distance}", f" and distance horizontally is {x_pos} px")
-    print(f"distance in ft horizontally {90/x_pos * 11/12}")
-    #print(f"Horizontal distance (px): {}")
+    cv2.line(original, (80, 0), (80, 120), (255, 0, 0), 2)
+    output_stream.putFrame(original)
 
-    cv2.imshow("in_range", original)
-    #cv2.imshow("Yellow Video", mask_y)
-    #cv2.imshow("Purple Video", mask_p)
-    cv2.imshow("Green Video", mask_g)
-    cv2.waitKey(1)
+    print("Pixel Height: " )
+
+    # Networktable values
+    table.putNumber("Angle", angle_per_pixels * x_pos - 30)
+    table.putNumber("FPS",fps)
+
+    #cv2.imshow("video", mask_y)
+    #cv2.waitKey(1)
     current_obj = None
 
 
